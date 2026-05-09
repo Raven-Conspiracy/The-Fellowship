@@ -1,0 +1,109 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel>=0.45"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fellowship-transforms"
+version = "0.1.0"
+description = "The Fellowship — Python transforms for Foundry data pipelines"
+readme = { text = "Python transforms for ontology ingestion and results output.", content-type = "text/markdown" }
+license = { text = "UNLICENSED" }
+requires-python = ">=3.11"
+authors = [
+  { name = "The Fellowship Team" },
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+  "pydantic>=2.10,<3",
+  "pyyaml>=6.0,<7",
+  "httpx>=0.28,<1",
+  "tenacity>=9.0,<10",
+  "structlog>=24.4,<25",
+  "python-json-logger>=3.2,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<1",
+  "pytest-cov>=6.0,<7",
+  "ruff>=0.8,<1",
+  "mypy>=1.13,<2",
+  "pre-commit>=4.0,<5",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+fellowship_transforms = ["py.typed"]
+
+[tool.pytest.ini_options]
+minversion = "8.3"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["src/fellowship_transforms"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "N",   # pep8-naming
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "SIM", # flake8-simplify
+  "RET", # flake8-return
+  "TCH", # flake8-type-checking-imports
+]
+ignore = [
+  "E501", # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fellowship_transforms"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+  "structlog.*",
+  "tenacity.*",
+]
+ignore_missing_imports = true
