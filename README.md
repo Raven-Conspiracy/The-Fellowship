@@ -1,10 +1,12 @@
 # The-Fellowship
-# Foundry × Striveworks — Agent Orchestration Layer - maybe
+# Foundry × Striveworks — Agent Orchestration Layer
 
 > **Status:** 🟡 Active Planning / Early Scaffolding  
 > **Languages:** TypeScript (orchestration engine) · Python (Foundry transforms)  
-> **Owner:** [Team TBD]  
-> **Last Updated:** 2026-05
+> **Owner:** [Gandolf]  
+> **Last Updated:** 2026-05  
+> **Target Scale:** ~5,000 concurrent users  
+> **Design Mandate:** Lean — minimize compute footprint, token usage, and dependencies
 
 ---
 
@@ -13,10 +15,9 @@
 Striveworks brings the agents. Foundry provides the data platform. The gap is
 **how those agents are coordinated at runtime**.
 
-Currently, agents are invoked one at a time inside **Palantir AIP
-Logic**. AIP Logic is a solid workflow builder — it handles scheduling,
-Ontology I/O, and lineage. What it is not is an agent orchestration system.
-It lacks:
+Currently, agents are invoked one at a time inside **Palantir AIP Logic**.
+AIP Logic is a solid workflow builder — it handles scheduling, Ontology I/O,
+and lineage. What it is not is an agent orchestration system. It lacks:
 
 - Multi-agent graphs (parallel, conditional, fan-out / fan-in)
 - Agent-to-agent state passing without writing back to the Ontology between every step
@@ -25,10 +26,12 @@ It lacks:
 - Human-in-the-loop checkpoints mid-graph without a full workflow restart
 - Durable execution (pause, resume, replay from a checkpoint)
 
-We are not replacing AIP Logic. AIP Logic remains the **entry point** — it
-triggers our orchestration layer the same way it would call a function. The
-orchestration layer takes over from there and drives the agents, then hands
-results back to Foundry when finished.
+**This orchestration layer replaces AIP Logic for agent coordination.**
+AIP Logic is not the entry point — the orchestrator is triggered directly
+by Foundry Ontology events, schedules, or Functions. It owns the full
+agent execution lifecycle end-to-end, then writes results directly back
+to the Ontology. We eliminate the AIP Logic middleman to reduce latency,
+compute overhead, and token consumption at scale (~5,000 users).
 
 ---
 
@@ -39,30 +42,30 @@ results back to Foundry when finished.
 | Agent graph definition (what runs, when, in what order) | AI model development or fine-tuning |
 | Execution engine (run graphs, manage state, handle failures) | Striveworks Chariot internal configuration |
 | Apollo bridge (how we invoke Striveworks agents from Foundry) | Foundry Ontology data modeling |
-| AIP Logic entry point stubs | Training pipelines |
+| Direct Ontology read/write (no AIP Logic middleman) | Training pipelines |
 | Result emission back to Foundry Ontology | End-user UI / AIP Agent Studio |
 | Observability (trace every agent hop) | MLOps / drift monitoring |
 
 **Striveworks owns the agents and their AI.  
 Apollo owns the transport between Striveworks and Foundry.  
-This repo owns the orchestration logic that drives those agents.**
+This repo owns the orchestration logic that drives those agents — and replaces AIP Logic for this purpose.**
 
 ---
 
-## High-Level Architecture
-
-```
+## High-Level Architectu```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                        PALANTIR FOUNDRY                              │
 │                                                                       │
-│   Ontology            AIP Logic                  Foundry Streams     │
-│   (data model)        (entry point + exit point) (event bus)        │
+│   Ontology            Foundry Functions           Foundry Streams    │
+│   (data model)        (trigger + deploy target)   (event bus)       │
 │        │                     │                         ▲             │
-│        │              triggers│                         │results      │
+│        │              triggers│                         │events       │
 └────────┼─────────────────────┼─────────────────────────┼────────────┘
          │                     │                         │
          │         ┌───────────▼─────────────────────────┴───────────┐
          │         │         ORCHESTRATION LAYER  (this repo)        │
+         │         │    (deploys as a Foundry Function /             │
+         │         │     Code Workspace — replaces AIP Logic)        │
          │         │                                                  │
          │         │   Graph Engine (TypeScript)                      │
          │         │   ├── AgentGraph  (DAG / state machine)          │
@@ -70,7 +73,7 @@ This repo owns the orchestration logic that drives those agents.**
          │         │   ├── AgentRegistry (name → Apollo endpoint map) │
          │         │   └── Adapters                                   │
          │         │       ├── ApolloAdapter  (calls Striveworks)     │
-         │         │       └── FoundryAdapter (writes back to Foundry)│
+         │         │       └── FoundryAdapter (reads/writes Ontology) │
          │         └────────────────────────┬────────────────────────┘
          │                                  │  via Apollo
 ┌────────┼──────────────────────────────────▼────────────────────────┐
@@ -91,39 +94,38 @@ This repo owns the orchestration logic that drives those agents.**
 ### Request Flow (happy path)
 
 ```
-1. Foundry Ontology event / schedule / user action / Object added to set
+1. Foundry Ontology event / schedule / user action
        ↓
-2. AIP Logic Function is triggered
+2. Foundry Function triggers the orchestrator directly (no AIP Logic)
        ↓
-3. AIP Logic builds an ExecutionRequest (graph name + input payload)
+3. Orchestrator resolves ExecutionRequest from Ontology context
        ↓
-4. Orchestration Layer receives the request
+4. GraphRunner loads the named AgentGraph, resolves the execution plan
        ↓
-5. GraphRunner loads the named AgentGraph, resolves the execution plan
-       ↓
-6. Each AgentNode is executed in order (sequential / parallel per graph)
+5. Each AgentNode is executed in order (sequential / parallel per graph)
    — ApolloAdapter calls the Striveworks agent via Palantir Apollo
    — Agent result is written into the shared GraphState
        ↓
-7. Final GraphState is mapped to a Foundry-typed result
+6. Final GraphState is mapped to a Foundry-typed result
        ↓
-8. FoundryAdapter writes result back to the Ontology via Action Type
-       ↓
-9. AIP Logic receives the completed result and continues its workflow
+7. FoundryAdapter writes result directly back to the Ontology via Action Type
+   (no AIP Logic handoff — one less hop, one less serialization boundary)
+```
 ```
 
 ---
 
 ## Why TypeScript for the Orchestration Engine
 
-- **Foundry Code Workspaces** run TypeScript natively and have first-class
-  TypeScript SDK support — this is the lowest-friction deployment target.
+- **Foundry Functions** run TypeScript natively (v1 and v2 runtimes) with
+  first-class Ontology SDK support — this is the lowest-friction deployment target.
 - The orchestration engine is IO-bound and event-driven; TypeScript's async
   model (async/await + Promise composition) is a natural fit.
-- The AIP Logic entry point stubs are TypeScript — keeping the call boundary
-  in the same language removes a serialization layer.
-- Python remains for Foundry **Python Transforms** (data pipeline work), which
-  have their own runtime and cannot easily call TypeScript modules directly.
+- **Lean by design:** TypeScript + the Ontology SDK lets us read/write the
+  Ontology directly without serialization hops through AIP Logic. Fewer
+  moving parts = lower compute and token usage at 5,000-user scale.
+- Python remains for **Python Transforms** (data pipeline work), which have
+  their own runtime and handle heavy ETL/embedding workloads separately.
 
 ---
 
