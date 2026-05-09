@@ -52,7 +52,9 @@ This repo owns the orchestration logic that drives those agents — and replaces
 
 ---
 
-## High-Level Architectu```
+## High-Level Architecture
+
+```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                        PALANTIR FOUNDRY                              │
 │                                                                       │
@@ -110,7 +112,6 @@ This repo owns the orchestration logic that drives those agents — and replaces
        ↓
 7. FoundryAdapter writes result directly back to the Ontology via Action Type
    (no AIP Logic handoff — one less hop, one less serialization boundary)
-```
 ```
 
 ---
