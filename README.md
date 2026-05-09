@@ -1,5 +1,5 @@
 # The-Fellowship
-# Foundry × Striveworks — Agent Orchestration Layer
+# Foundry × Striveworks — Agent Orchestration Layer - maybe
 
 > **Status:** 🟡 Active Planning / Early Scaffolding  
 > **Languages:** TypeScript (orchestration engine) · Python (Foundry transforms)  
@@ -13,7 +13,7 @@
 Striveworks brings the agents. Foundry provides the data platform. The gap is
 **how those agents are coordinated at runtime**.
 
-Currently, Striveworks agents are invoked one at a time inside **Palantir AIP
+Currently, agents are invoked one at a time inside **Palantir AIP
 Logic**. AIP Logic is a solid workflow builder — it handles scheduling,
 Ontology I/O, and lineage. What it is not is an agent orchestration system.
 It lacks:
@@ -91,7 +91,7 @@ This repo owns the orchestration logic that drives those agents.**
 ### Request Flow (happy path)
 
 ```
-1. Foundry Ontology event / schedule / user action
+1. Foundry Ontology event / schedule / user action / Object added to set
        ↓
 2. AIP Logic Function is triggered
        ↓

@@ -1,0 +1,132 @@
+# =============================================================================
+# The Fellowship — Development Environment Configuration
+# =============================================================================
+
+environment:
+  name: dev
+  structured_logging: false
+  log_level: debug
+
+# ---------------------------------------------------------------------------
+# Apollo — Bridge to Striveworks agents
+# ---------------------------------------------------------------------------
+apollo:
+  base_url: "https://your-apollo-instance.palantirfoundry.com"
+  timeout_ms: 30000
+  max_retries: 3
+  retry_delay_ms: 1000
+  # Auth is resolved at runtime from APOLLO_TOKEN env var
+  auth:
+    type: bearer_token
+    token_env_var: APOLLO_TOKEN
+
+# ---------------------------------------------------------------------------
+# Foundry — Backend ontology and dataset write target
+# ---------------------------------------------------------------------------
+foundry:
+  base_url: "https://your-enrollment.palantirfoundry.com"
+  token_env_var: FOUNDRY_TOKEN
+  ontology:
+    rid: "ri.ontology.main.ontology.dev-agent-results"
+    action_type_rid: "ri.actions.main.action-type.write-agent-result"
+  dataset:
+    rid: "ri.foundry.main.dataset.dev-graph-checkpoints"
+    branch: "master"
+  streams:
+    event_stream_rid: "ri.foundry.main.stream.dev-orchestration-events"
+
+# ---------------------------------------------------------------------------
+# Striveworks Agent Registrations
+# ---------------------------------------------------------------------------
+agents:
+  classifier:
+    display_name: "Incident Classifier"
+    apollo_route: "/striveworks/agents/classifier/v1/execute"
+    method: POST
+    input_schema_version: "1.0"
+    timeout_ms: 15000
+    retry_policy:
+      max_attempts: 3
+      base_delay_ms: 500
+      max_delay_ms: 5000
+      backoff_multiplier: 2
+    circuit_breaker:
+      failure_threshold: 5
+      cooldown_ms: 30000
+      half_open_max_requests: 3
+
+  analyzer:
+    display_name: "Incident Analyzer"
+    apollo_route: "/striveworks/agents/analyzer/v1/execute"
+    method: POST
+    input_schema_version: "1.0"
+    timeout_ms: 30000
+    retry_policy:
+      max_attempts: 3
+      base_delay_ms: 500
+      max_delay_ms: 10000
+      backoff_multiplier: 2
+    circuit_breaker:
+      failure_threshold: 5
+      cooldown_ms: 30000
+      half_open_max_requests: 3
+
+  summarizer:
+    display_name: "Incident Summarizer"
+    apollo_route: "/striveworks/agents/summarizer/v1/execute"
+    method: POST
+    input_schema_version: "1.0"
+    timeout_ms: 15000
+    retry_policy:
+      max_attempts: 2
+      base_delay_ms: 500
+      max_delay_ms: 5000
+      backoff_multiplier: 2
+    circuit_breaker:
+      failure_threshold: 5
+      cooldown_ms: 30000
+      half_open_max_requests: 3
+
+  escalator:
+    display_name: "Incident Escalator"
+    apollo_route: "/striveworks/agents/escalator/v1/execute"
+    method: POST
+    input_schema_version: "1.0"
+    timeout_ms: 10000
+    retry_policy:
+      max_attempts: 2
+      base_delay_ms: 300
+      max_delay_ms: 3000
+      backoff_multiplier: 2
+    circuit_breaker:
+      failure_threshold: 3
+      cooldown_ms: 60000
+      half_open_max_requests: 2
+
+# ---------------------------------------------------------------------------
+# Graph Execution Defaults
+# ---------------------------------------------------------------------------
+graphs:
+  max_parallelism: 5
+  execution_timeout_ms: 300000
+  state_persist: false
+  idempotency:
+    enabled: true
+    key_ttl_seconds: 3600
+
+# ---------------------------------------------------------------------------
+# Retry Policy (Global Defaults)
+# ---------------------------------------------------------------------------
+retry:
+  max_attempts: 3
+  base_delay_ms: 500
+  max_delay_ms: 10000
+  backoff_multiplier: 2
+
+# ---------------------------------------------------------------------------
+# Circuit Breaker (Global Defaults)
+# ---------------------------------------------------------------------------
+circuit_breaker:
+  failure_threshold: 5
+  cooldown_ms: 30000
+  half_open_max_requests: 3
